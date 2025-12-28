@@ -89,6 +89,7 @@ const PLANS: Record<string, Plan> = {
     name: 'Pro+',
     subtitle: "Dean's List",
     price: { monthly: 15, yearly: 150 },
+    comingSoon: true,
     features: {
       semesters: 'Unlimited semesters',
       courses: 'Unlimited courses',
@@ -110,6 +111,7 @@ const PLANS: Record<string, Plan> = {
     name: 'Enterprise',
     subtitle: 'University/Institution',
     price: { monthly: null, yearly: null },
+    comingSoon: true,
     features: {
       semesters: 'Unlimited',
       courses: 'Unlimited',
@@ -205,15 +207,21 @@ export default function Pricing() {
             const isFeatured = plan.featured
             const price = plan.price[billingInterval]
             const isEnterprise = key === 'enterprise'
+            const isComingSoon = plan.comingSoon
 
             return (
               <Card
                 key={key}
-                className={`relative ${isFeatured ? 'border-2 border-[#D4AF37] shadow-lg' : ''}`}
+                className={`relative ${isFeatured ? 'border-2 border-[#D4AF37] shadow-lg' : ''} ${isComingSoon ? 'opacity-60' : ''}`}
               >
                 {isFeatured && (
                   <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#D4AF37] text-white">
                     Most Popular
+                  </Badge>
+                )}
+                {isComingSoon && (
+                  <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gray-500 text-white">
+                    Coming Soon
                   </Badge>
                 )}
                 <CardHeader>
@@ -288,7 +296,11 @@ export default function Pricing() {
                     )}
                   </div>
 
-                  {isEnterprise ? (
+                  {isComingSoon ? (
+                    <Button className="w-full" variant="outline" disabled>
+                      Coming Soon
+                    </Button>
+                  ) : isEnterprise ? (
                     <Button className="w-full" variant="outline" disabled>
                       Contact Sales
                     </Button>

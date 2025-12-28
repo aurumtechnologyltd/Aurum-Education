@@ -6,8 +6,33 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Mail, Lock, User, GraduationCap, Gift, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+
+const TRINIDAD_TOBAGO_UNIVERSITIES = [
+  'University of the West Indies (UWI)',
+  'University of Trinidad and Tobago (UTT)',
+  'College of Science, Technology and Applied Arts of Trinidad and Tobago (COSTAATT)',
+  'University of the Southern Caribbean (USC)',
+  'SBCS Global Learning Institute',
+  'Arthur Lok Jack Global School of Business',
+  'Caribbean Nazarene College',
+  'School of Accounting and Management (SAM)',
+  'Other'
+]
+
+const ALLOWED_EMAIL_DOMAINS = [
+  'uwi.edu',
+  'sta.uwi.edu',
+  'utt.edu.tt',
+  'costaatt.edu.tt',
+  'usc.edu.tt',
+  'sbcs.edu.tt',
+  'lokjackgsb.edu.tt',
+  'cnc.edu.tt',
+  'sam.edu.tt',
+]
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -17,6 +42,8 @@ export default function Signup() {
   const [error, setError] = useState<string | null>(null)
   const [referralCode, setReferralCode] = useState('')
   const [referralValid, setReferralValid] = useState<boolean | null>(null)
+  const [university, setUniversity] = useState('')
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   useEffect(() => {
     // Pre-fill referral code from URL
@@ -56,6 +83,26 @@ export default function Signup() {
     }
   }
 
+  const validateEmail = (email: string): boolean => {
+    const emailDomain = email.split('@')[1]?.toLowerCase()
+    if (!emailDomain) {
+      setEmailError('Please enter a valid email address')
+      return false
+    }
+    
+    const isValidDomain = ALLOWED_EMAIL_DOMAINS.some(domain => 
+      emailDomain === domain || emailDomain.endsWith(`.${domain}`)
+    )
+    
+    if (!isValidDomain) {
+      setEmailError('Please use your university email address. Personal email accounts are not allowed.')
+      return false
+    }
+    
+    setEmailError(null)
+    return true
+  }
+
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
@@ -65,7 +112,13 @@ export default function Signup() {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
     const fullName = formData.get('fullName') as string
-    const university = formData.get('university') as string
+    // University is now from state, not form data
+
+    // Validate email domain
+    if (!validateEmail(email)) {
+      setLoading(false)
+      return
+    }
 
     // Validate referral code if provided (include email for self-referral check)
     let referrerId: string | null = null
@@ -107,20 +160,17 @@ export default function Signup() {
     }
 
     // Update profile with university and referral code
-    const profileUpdates: any = {}
-    if (university) {
-      profileUpdates.university = university
+    const profileUpdates: any = {
+      university: university, // Always save university since it's required
     }
     if (referralCode && referrerId) {
       profileUpdates.referred_by = referralCode
     }
 
-    if (Object.keys(profileUpdates).length > 0) {
-      await supabase
-        .from('profiles')
-        .update(profileUpdates)
-        .eq('id', user.id)
-    }
+    await supabase
+      .from('profiles')
+      .update(profileUpdates)
+      .eq('id', user.id)
 
     // Initialize subscription record - signup bonus is handled by database trigger
     try {
@@ -224,8 +274,21 @@ export default function Signup() {
                   placeholder="you@university.edu"
                   className="pl-10"
                   required
+                  onBlur={(e) => {
+                    if (e.target.value) {
+                      validateEmail(e.target.value)
+                    }
+                  }}
+                  onChange={(e) => {
+                    if (emailError) {
+                      setEmailError(null)
+                    }
+                  }}
                 />
               </div>
+              {emailError && (
+                <p className="text-xs text-red-600">{emailError}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -245,16 +308,21 @@ export default function Signup() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="university">University (Optional)</Label>
+              <Label htmlFor="university">University</Label>
               <div className="relative">
-                <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="university"
-                  name="university"
-                  type="text"
-                  placeholder="Your University"
-                  className="pl-10"
-                />
+                <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+                <Select value={university} onValueChange={setUniversity} required>
+                  <SelectTrigger className="pl-10">
+                    <SelectValue placeholder="Select your university" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TRINIDAD_TOBAGO_UNIVERSITIES.map((uni) => (
+                      <SelectItem key={uni} value={uni}>
+                        {uni}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -284,7 +352,7 @@ export default function Signup() {
               )}
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || !university}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Account'}
             </Button>
           </form>
