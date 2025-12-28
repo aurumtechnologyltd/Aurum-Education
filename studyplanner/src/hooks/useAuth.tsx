@@ -29,6 +29,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Handle OAuth callback - clean URL hash immediately for security
+    const handleOAuthCallback = () => {
+      const hash = window.location.hash
+      if (hash && hash.includes('access_token')) {
+        // Supabase will handle the session automatically via onAuthStateChange
+        // But we need to clean the URL immediately for security
+        // Replace the hash with just the path
+        const path = window.location.pathname + window.location.search
+        window.history.replaceState(null, '', path)
+      }
+    }
+
+    // Clean URL on mount if it contains tokens
+    handleOAuthCallback()
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
@@ -53,6 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSemesters([])
         setActiveSemester(null)
         setLoading(false)
+      }
+      
+      // Clean URL hash after auth state change if tokens are present
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        const path = window.location.pathname + window.location.search
+        window.history.replaceState(null, '', path)
       }
     })
 

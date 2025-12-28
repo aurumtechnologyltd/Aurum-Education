@@ -48,6 +48,14 @@ export default function Dashboard() {
   const [upcomingAssignments, setUpcomingAssignments] = useState<(Assignment & { course: Course })[]>([])
   const [thisWeekMilestones, setThisWeekMilestones] = useState<(Milestone & { assignment: Assignment & { course: Course } })[]>([])
   const [allAssignments, setAllAssignments] = useState<AssignmentWithGrade[]>([])
+
+  // Security: Clean OAuth tokens from URL hash immediately
+  useEffect(() => {
+    if (window.location.hash && window.location.hash.includes('access_token')) {
+      const path = window.location.pathname + window.location.search
+      window.history.replaceState(null, '', path)
+    }
+  }, [])
   const [allSemesters, setAllSemesters] = useState<(Semester & { courses: Course[] })[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
