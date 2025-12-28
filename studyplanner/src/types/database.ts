@@ -961,20 +961,26 @@ export type Database = {
           stripe_subscription_id: string
           updated_at: string | null
           user_id: string
+          credit_balance: number | null
+          credit_cap: number | null
+          billing_interval: string | null
         }
         Insert: {
           cancel_at_period_end?: boolean | null
           created_at?: string | null
-          current_period_end: string
-          current_period_start: string
+          current_period_end?: string
+          current_period_start?: string
           id?: string
           plan_tier: string
           price_id?: string | null
           status: string
-          stripe_customer_id: string
-          stripe_subscription_id: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           updated_at?: string | null
           user_id: string
+          credit_balance?: number | null
+          credit_cap?: number | null
+          billing_interval?: string | null
         }
         Update: {
           cancel_at_period_end?: boolean | null
@@ -989,6 +995,9 @@ export type Database = {
           stripe_subscription_id?: string
           updated_at?: string | null
           user_id?: string
+          credit_balance?: number | null
+          credit_cap?: number | null
+          billing_interval?: string | null
         }
         Relationships: [
           {
@@ -1015,6 +1024,24 @@ export type Database = {
           p_user_id: string
         }
         Returns: number
+      }
+      award_credits_internal: {
+        Args: {
+          p_user_id: string
+          p_amount: number
+          p_type: string
+          p_description?: string
+          p_reference_id?: string
+          p_respect_cap?: boolean
+        }
+        Returns: number
+      }
+      check_and_deduct_credits: {
+        Args: {
+          p_user_id: string
+          p_amount: number
+        }
+        Returns: boolean
       }
       deduct_credits_atomic: {
         Args: {

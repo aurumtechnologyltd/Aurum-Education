@@ -132,6 +132,10 @@ export default function Signup() {
           status: 'active',
           credit_balance: 0, // Will be set to 50 by trigger
           credit_cap: 50,
+          stripe_customer_id: null, // Free tier users don't have Stripe customer yet
+          stripe_subscription_id: null,
+          current_period_start: new Date().toISOString(),
+          current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
         }, { onConflict: 'user_id' })
     } catch (err) {
       console.error('Error initializing subscription:', err)
