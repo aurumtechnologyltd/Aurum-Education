@@ -8,32 +8,35 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-// SECURITY: Capture and immediately clean OAuth tokens from URL hash
-// This prevents tokens from being visible in browser URL bar and history
-let capturedHash: string | null = null
-if (typeof window !== 'undefined' && window.location.hash) {
-  const hash = window.location.hash
-  if (hash.includes('access_token') || hash.includes('refresh_token') || hash.includes('error')) {
-    // Capture the hash for Supabase to process
-    capturedHash = hash
-    // Immediately clean the URL - this happens synchronously before any rendering
-    const cleanPath = window.location.pathname + window.location.search
-    window.history.replaceState(null, '', cleanPath)
+// Extend Window interface for TypeScript
+declare global {
+  interface Window {
+    __SUPABASE_AUTH_HASH__?: string
   }
+}
+
+// SECURITY: Get the hash that was captured and cleaned by index.html inline script
+// The inline script in index.html runs BEFORE any JS modules load, so the URL
+// is already clean by the time we get here
+const capturedHash: string | null = typeof window !== 'undefined' 
+  ? window.__SUPABASE_AUTH_HASH__ || null 
+  : null
+
+// Clear the global after reading
+if (typeof window !== 'undefined' && window.__SUPABASE_AUTH_HASH__) {
+  delete window.__SUPABASE_AUTH_HASH__
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true,
-    // If we captured and cleaned the hash, we need to manually set the session
-    // Supabase will still try to read from URL, but we've already cleaned it
-    // The session will be restored from the hash we captured
+    // Disable detectSessionInUrl since we handle it manually
+    detectSessionInUrl: false,
   },
 })
 
-// If we captured OAuth tokens, manually process them
+// If we captured OAuth tokens from the inline script, manually process them
 if (capturedHash) {
   // Parse the hash and set the session
   const hashParams = new URLSearchParams(capturedHash.substring(1))
