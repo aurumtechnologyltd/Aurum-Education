@@ -127,7 +127,7 @@ npm run build
 
 ## 📝 License
 
-Copyright © 2024 Aurum Technology Limited
+Copyright © 2025 Aurum Technology Limited
 
 ## 🤝 Contributing
 

@@ -250,7 +250,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-            © 2024 Aurum Education. All rights reserved.
+            © 2025 Aurum Education. All rights reserved.
           </div>
         </div>
       </footer>
