@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: aurum-education-frontend
+    env: static
+    buildCommand: cd studyplanner && npm install && npm run build
+    staticPublishPath: studyplanner/dist
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false
+
