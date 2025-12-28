@@ -5,19 +5,6 @@
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Aurum Education</title>
-    <!-- SECURITY: Clean OAuth tokens from URL IMMEDIATELY before any JS loads -->
-    <script>
-      (function() {
-        var hash = window.location.hash;
-        if (hash && (hash.indexOf('access_token') !== -1 || hash.indexOf('refresh_token') !== -1 || hash.indexOf('error=') !== -1)) {
-          // Store hash for Supabase to process
-          window.__SUPABASE_AUTH_HASH__ = hash;
-          // Clean URL immediately
-          var cleanUrl = window.location.pathname + window.location.search;
-          window.history.replaceState(null, '', cleanUrl);
-        }
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>

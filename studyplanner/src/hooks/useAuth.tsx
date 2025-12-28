@@ -29,35 +29,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Handle OAuth callback - clean URL hash immediately for security
-    const handleOAuthCallback = () => {
-      const hash = window.location.hash
-      if (hash && hash.includes('access_token')) {
-        // Supabase will handle the session automatically via onAuthStateChange
-        // But we need to clean the URL immediately for security
-        // Replace the hash with just the path
+    // Helper to clean OAuth tokens from URL hash (for security after processing)
+    const cleanUrlHash = () => {
+      if (window.location.hash && window.location.hash.includes('access_token')) {
         const path = window.location.pathname + window.location.search
         window.history.replaceState(null, '', path)
       }
     }
 
-    // Clean URL on mount if it contains tokens
-    handleOAuthCallback()
+    // Check if this is an OAuth callback (hash contains tokens)
+    const isOAuthCallback = window.location.hash && window.location.hash.includes('access_token')
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
-        fetchSemesters(session.user.id)
-      } else {
-        setLoading(false)
+    // Listen for auth changes FIRST (before getSession)
+    // This ensures we catch the SIGNED_IN event from OAuth callback
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Clean URL hash after OAuth callback is processed
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        cleanUrlHash()
       }
-    })
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
@@ -67,14 +57,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null)
         setSemesters([])
         setActiveSemester(null)
+        // Only set loading false if NOT an OAuth callback
+        // (OAuth callback will trigger SIGNED_IN which handles it)
+        if (!isOAuthCallback) {
+          setLoading(false)
+        }
+      }
+    })
+
+    // Get initial session
+    // If this is an OAuth callback, Supabase will process the hash and trigger onAuthStateChange
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      // If we already have a session (not OAuth callback), set it
+      if (session) {
+        setSession(session)
+        setUser(session.user)
+        fetchProfile(session.user.id)
+        fetchSemesters(session.user.id)
+        cleanUrlHash()
+      } else if (!isOAuthCallback) {
+        // No session and not OAuth callback - user is not logged in
         setLoading(false)
       }
-      
-      // Clean URL hash after auth state change if tokens are present
-      if (window.location.hash && window.location.hash.includes('access_token')) {
-        const path = window.location.pathname + window.location.search
-        window.history.replaceState(null, '', path)
-      }
+      // If isOAuthCallback and no session yet, wait for onAuthStateChange SIGNED_IN event
     })
 
     return () => subscription.unsubscribe()
