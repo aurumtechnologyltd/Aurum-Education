@@ -132,6 +132,21 @@ Deno.serve(async (req) => {
       throw new Error(`Course not found: ${courseError?.message}`);
     }
 
+    // Insert user message into chat_messages table for persistence
+    const { error: insertUserError } = await supabase
+      .from("chat_messages")
+      .insert({
+        user_id: user.id,
+        course_id: course_id,
+        role: "user",
+        content: query,
+      });
+
+    if (insertUserError) {
+      console.error("Failed to save user message:", insertUserError);
+      // Don't fail the request, just log the error
+    }
+
     // Generate embedding for the query using OpenAI (same for all tiers)
     const queryEmbedding = await generateEmbedding(query);
 
@@ -204,6 +219,29 @@ Question: ${query}`;
       similarity: m.similarity,
       metadata: m.metadata || {},
     }));
+
+    // Insert assistant message into chat_messages table for persistence
+    const { error: insertAssistantError } = await supabase
+      .from("chat_messages")
+      .insert({
+        user_id: user.id,
+        course_id: course_id,
+        role: "assistant",
+        content: response,
+        model_used: modelConfig.model,
+        provider: modelConfig.provider,
+        tokens_used: {
+          input: Math.ceil((systemPrompt.length + userPrompt.length) / 4), // Rough estimate
+          output: Math.ceil(response.length / 4), // Rough estimate
+        },
+        credits_deducted: isEnterprise ? 0 : CREDIT_COST,
+        sources: sources,
+      });
+
+    if (insertAssistantError) {
+      console.error("Failed to save assistant message:", insertAssistantError);
+      // Don't fail the request, just log the error
+    }
 
     return new Response(
       JSON.stringify({

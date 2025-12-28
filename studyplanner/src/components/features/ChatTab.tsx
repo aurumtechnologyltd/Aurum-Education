@@ -2,7 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
-import { Send, Bot, User, Sparkles, FileQuestion } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Send, Bot, User, Sparkles, FileQuestion, Trash2, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 
@@ -12,6 +18,10 @@ interface Message {
   content: string
   timestamp: Date
   sources?: Array<{ chunk_id: number; similarity: number; metadata?: any }>
+  model_used?: string
+  provider?: string
+  tokens_used?: { input: number; output: number }
+  credits_deducted?: number
 }
 
 interface ChatTabProps {
@@ -23,7 +33,50 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Load chat history when courseId changes
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (!courseId) return
+
+      setHistoryLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('course_id', courseId)
+          .order('created_at', { ascending: true })
+
+        if (error) {
+          console.error('Failed to load chat history:', error)
+          return
+        }
+
+        // Map database rows to Message interface
+        const historyMessages: Message[] = (data || []).map(row => ({
+          id: row.id,
+          role: row.role as 'user' | 'assistant',
+          content: row.content,
+          timestamp: new Date(row.created_at),
+          sources: row.sources as Array<{ chunk_id: number; similarity: number; metadata?: any }> | undefined,
+          model_used: row.model_used || undefined,
+          provider: row.provider || undefined,
+          tokens_used: row.tokens_used as { input: number; output: number } | undefined,
+          credits_deducted: row.credits_deducted || undefined,
+        }))
+
+        setMessages(historyMessages)
+      } catch (err) {
+        console.error('Error loading chat history:', err)
+      } finally {
+        setHistoryLoading(false)
+      }
+    }
+
+    loadChatHistory()
+  }, [courseId])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -86,6 +139,140 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
     }
   }
 
+  const handleClearHistory = async () => {
+    const confirmClear = window.confirm(
+      'Are you sure you want to clear all chat history for this course? This action cannot be undone.'
+    )
+
+    if (!confirmClear) return
+
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('course_id', courseId)
+
+      if (error) {
+        console.error('Failed to clear chat history:', error)
+        alert('Failed to clear chat history. Please try again.')
+        return
+      }
+
+      // Clear local state
+      setMessages([])
+    } catch (err) {
+      console.error('Error clearing chat history:', err)
+      alert('Failed to clear chat history. Please try again.')
+    }
+  }
+
+  const handleExportTranscript = async (format: 'txt' | 'md' = 'txt') => {
+    if (messages.length === 0) return
+
+    try {
+      // Get course information for filename
+      const { data: course } = await supabase
+        .from('courses')
+        .select('name')
+        .eq('id', courseId)
+        .single()
+
+      const courseName = course?.name || 'Unknown Course'
+      const date = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+      const filename = `Aurum Chat Transcript - ${courseName} - ${date}.${format}`
+
+      let content = ''
+
+      if (format === 'txt') {
+        // Plain text format
+        content = `Aurum Education - Chat Transcript\n`
+        content += `Course: ${courseName}\n`
+        content += `Date: ${new Date().toLocaleDateString()}\n`
+        content += `Messages: ${messages.length}\n`
+        content += `========================================\n\n`
+
+        messages.forEach((message, index) => {
+          const timestamp = message.timestamp.toLocaleString()
+          const role = message.role === 'user' ? 'You' : 'Assistant'
+
+          content += `[${timestamp}] ${role}:\n`
+          content += `${message.content}\n`
+
+          // Add sources for assistant messages
+          if (message.role === 'assistant' && message.sources && message.sources.length > 0) {
+            content += `Sources: ${message.sources.map(s => `Chunk ${s.chunk_id}`).join(', ')}\n`
+          }
+
+          // Add metadata for assistant messages
+          if (message.role === 'assistant' && message.model_used) {
+            content += `Model: ${message.model_used} (${message.provider})\n`
+            if (message.tokens_used) {
+              content += `Tokens: ${message.tokens_used.input} input, ${message.tokens_used.output} output\n`
+            }
+            if (message.credits_deducted && message.credits_deducted > 0) {
+              content += `Credits: ${message.credits_deducted}\n`
+            }
+          }
+
+          content += '\n'
+        })
+      } else {
+        // Markdown format
+        content = `# Aurum Education - Chat Transcript\n\n`
+        content += `**Course:** ${courseName}\n`
+        content += `**Date:** ${new Date().toLocaleDateString()}\n`
+        content += `**Messages:** ${messages.length}\n\n`
+        content += `---\n\n`
+
+        messages.forEach((message, index) => {
+          const timestamp = message.timestamp.toLocaleString()
+          const role = message.role === 'user' ? '👤 You' : '🤖 Assistant'
+
+          content += `## ${role} (${timestamp})\n\n`
+          content += `${message.content}\n\n`
+
+          // Add sources for assistant messages
+          if (message.role === 'assistant' && message.sources && message.sources.length > 0) {
+            content += `**Sources:**\n`
+            message.sources.forEach(source => {
+              content += `- Chunk ${source.chunk_id} (similarity: ${(source.similarity * 100).toFixed(1)}%)\n`
+            })
+            content += '\n'
+          }
+
+          // Add metadata for assistant messages
+          if (message.role === 'assistant' && message.model_used) {
+            content += `**Model:** ${message.model_used} (${message.provider})\n`
+            if (message.tokens_used) {
+              content += `**Tokens:** ${message.tokens_used.input} input, ${message.tokens_used.output} output\n`
+            }
+            if (message.credits_deducted && message.credits_deducted > 0) {
+              content += `**Credits:** ${message.credits_deducted}\n`
+            }
+            content += '\n'
+          }
+
+          content += `---\n\n`
+        })
+      }
+
+      // Create and trigger download
+      const blob = new Blob([content], { type: format === 'md' ? 'text/markdown' : 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+    } catch (err) {
+      console.error('Error exporting transcript:', err)
+      alert('Failed to export transcript. Please try again.')
+    }
+  }
+
   if (!hasDocuments) {
     return (
       <Card className="border-dashed">
@@ -104,13 +291,62 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
 
   return (
     <Card className="flex flex-col h-[600px] overflow-hidden">
+      {/* Chat Header */}
+      {messages.length > 0 && (
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-sm font-medium text-muted-foreground">Chat History</h3>
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loading || historyLoading}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => handleExportTranscript('txt')}>
+                  Export as .txt
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportTranscript('md')}>
+                  Export as .md
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearHistory}
+              className="text-destructive hover:text-destructive"
+              disabled={loading || historyLoading}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear History
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Chat Messages */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <div 
           ref={scrollRef}
           className="h-full overflow-y-auto p-4"
         >
-        {messages.length === 0 ? (
+        {historyLoading ? (
+          <div className="flex flex-col items-center justify-center h-full text-center py-12">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+              <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">Loading Chat History</h3>
+            <p className="text-muted-foreground max-w-sm">
+              Retrieving your previous conversations...
+            </p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
               <Sparkles className="w-8 h-8 text-primary" />
