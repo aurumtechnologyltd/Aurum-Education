@@ -59,7 +59,7 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
           id: row.id,
           role: row.role as 'user' | 'assistant',
           content: row.content,
-          timestamp: new Date(row.created_at),
+          timestamp: new Date(row.created_at || new Date()),
           sources: row.sources as Array<{ chunk_id: number; similarity: number; metadata?: any }> | undefined,
           model_used: row.model_used || undefined,
           provider: row.provider || undefined,
@@ -191,7 +191,7 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
         content += `Messages: ${messages.length}\n`
         content += `========================================\n\n`
 
-        messages.forEach((message, index) => {
+        messages.forEach((message) => {
           const timestamp = message.timestamp.toLocaleString()
           const role = message.role === 'user' ? 'You' : 'Assistant'
 
@@ -224,7 +224,7 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
         content += `**Messages:** ${messages.length}\n\n`
         content += `---\n\n`
 
-        messages.forEach((message, index) => {
+        messages.forEach((message) => {
           const timestamp = message.timestamp.toLocaleString()
           const role = message.role === 'user' ? '👤 You' : '🤖 Assistant'
 
