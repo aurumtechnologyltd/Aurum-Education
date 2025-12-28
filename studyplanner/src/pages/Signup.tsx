@@ -279,7 +279,7 @@ export default function Signup() {
                       validateEmail(e.target.value)
                     }
                   }}
-                  onChange={(e) => {
+                  onChange={() => {
                     if (emailError) {
                       setEmailError(null)
                     }

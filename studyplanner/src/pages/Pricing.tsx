@@ -38,6 +38,7 @@ interface Plan {
   subtitle: string
   price: { monthly: number | null; yearly: number | null }
   featured?: boolean
+  comingSoon?: boolean
   features: PlanFeatures
 }
 
