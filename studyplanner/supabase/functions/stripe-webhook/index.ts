@@ -23,7 +23,7 @@ const processedEvents = new Set<string>();
 
 // Credit allocation by tier
 const CREDIT_ALLOCATIONS = {
-  free: { monthly: 0, cap: 50 },
+  free: { monthly: 50, cap: 50 },
   pro: { monthly: 500, cap: 1000 },
   pro_plus: { monthly: 2000, cap: 4000 },
   enterprise: { monthly: Infinity, cap: Infinity },

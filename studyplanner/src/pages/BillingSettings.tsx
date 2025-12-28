@@ -234,7 +234,7 @@ export default function BillingSettings() {
             <CardTitle>Credits</CardTitle>
             <CardDescription>
               {subscription.plan_tier === 'free'
-                ? 'One-time signup bonus'
+                ? 'Monthly allocation (50 credits/month)'
                 : 'Monthly allocation with rollover'}
             </CardDescription>
           </CardHeader>
@@ -251,9 +251,9 @@ export default function BillingSettings() {
             <div className="text-sm space-y-1">
               <p>• Chat: 5 credits per question</p>
               <p>• Study Plan: 10 credits per generation</p>
-              {subscription.plan_tier !== 'free' && subscription.current_period_end && (
+              {subscription.current_period_end && (
                 <p>
-                  • Resets to {subscription.credit_cap === 1000 ? '500' : '2000'} on{' '}
+                  • Resets to {subscription.plan_tier === 'free' ? '50' : subscription.credit_cap === 1000 ? '500' : '2000'} on{' '}
                   {format(new Date(subscription.current_period_end), 'MMM d, yyyy')}
                 </p>
               )}

@@ -24,7 +24,7 @@ export const PLAN_TIERS = {
       max_semesters: 1,
       max_courses_per_semester: 5,
       max_resources_per_course: 3,
-      initial_credits: 50,
+      monthly_credits: 50,
       credit_cap: 50,
       chat_cost: 5,
       study_plan_cost: 10,

@@ -185,7 +185,7 @@ export default function Signup() {
           stripe_customer_id: null, // Free tier users don't have Stripe customer yet
           stripe_subscription_id: null,
           current_period_start: new Date().toISOString(),
-          current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
+          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 1 month from now
         }, { onConflict: 'user_id' })
     } catch (err) {
       console.error('Error initializing subscription:', err)

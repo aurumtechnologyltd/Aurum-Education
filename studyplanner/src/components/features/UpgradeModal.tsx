@@ -48,7 +48,7 @@ const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
     courses: '5 courses per semester',
     resources: '3 resources per course',
     syllabus: '1 syllabus per course',
-    credits: '50 credits (one-time)',
+    credits: '50 credits/month',
     chat: true,
     studyPlan: 'Basic study plans',
     calendar: true,
