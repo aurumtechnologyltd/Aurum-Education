@@ -293,13 +293,6 @@ export function UpgradeModal({ open, onOpenChange, targetTier }: UpgradeModalPro
             </div>
           )}
 
-          {/* Money-back guarantee */}
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Badge variant="outline" className="bg-[#D4AF37]/10 border-[#D4AF37] text-[#D4AF37]">
-              30-Day Money-Back Guarantee
-            </Badge>
-          </div>
-
           {/* Actions */}
           <div className="flex gap-3">
             <Button

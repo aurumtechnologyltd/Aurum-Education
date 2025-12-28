@@ -212,14 +212,25 @@ export default function Landing() {
               <h3 className="font-semibold mb-4">Product</h3>
               <ul className="space-y-2 text-sm">
                 <li><Link to="/pricing" className="text-muted-foreground hover:text-foreground">Pricing</Link></li>
-                <li><Link to="/" className="text-muted-foreground hover:text-foreground">Features</Link></li>
+                <li><Link to="/features" className="text-muted-foreground hover:text-foreground">Features</Link></li>
               </ul>
             </div>
             <div>
               <h3 className="font-semibold mb-4">Company</h3>
               <ul className="space-y-2 text-sm">
-                <li><Link to="/" className="text-muted-foreground hover:text-foreground">About</Link></li>
-                <li><Link to="/" className="text-muted-foreground hover:text-foreground">Contact</Link></li>
+                <li>
+                  <a
+                    href="https://aurumtechnologyltd.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Aurum Technology Limited
+                    <span className="text-xs ml-1">(Parent Company)</span>
+                  </a>
+                </li>
+                <li><Link to="/about" className="text-muted-foreground hover:text-foreground">About</Link></li>
+                <li><Link to="/contact" className="text-muted-foreground hover:text-foreground">Contact</Link></li>
               </ul>
             </div>
             <div>

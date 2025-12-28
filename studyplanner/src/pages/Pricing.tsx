@@ -342,7 +342,7 @@ export default function Pricing() {
             <AccordionItem value="refund">
               <AccordionTrigger>Do you offer refunds?</AccordionTrigger>
               <AccordionContent>
-                Yes, we offer a 30-day money-back guarantee. If you're not satisfied, contact us for a full refund.
+                If you're not satisfied, please contact us and we'll work with you to resolve any issues.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="downgrade">

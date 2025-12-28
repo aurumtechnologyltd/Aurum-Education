@@ -1009,6 +1009,54 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          id: string
+          name: string
+          email: string
+          company: string | null
+          interest: string
+          message: string
+          utm_source: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_content: string | null
+          page_url: string | null
+          status: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          email: string
+          company?: string | null
+          interest?: string
+          message: string
+          utm_source?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_content?: string | null
+          page_url?: string | null
+          status?: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          email?: string
+          company?: string | null
+          interest?: string
+          message?: string
+          utm_source?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_content?: string | null
+          page_url?: string | null
+          status?: string
+          created_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

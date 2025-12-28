@@ -12,6 +12,9 @@ import Landing from '@/pages/Landing'
 import Login from '@/pages/Login'
 import Signup from '@/pages/Signup'
 import Pricing from '@/pages/Pricing'
+import Features from '@/pages/Features'
+import About from '@/pages/About'
+import Contact from '@/pages/Contact'
 import SetupSemester from '@/pages/SetupSemester'
 import Dashboard from '@/pages/Dashboard'
 import CourseDetail from '@/pages/CourseDetail'
@@ -34,6 +37,9 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/features" element={<Features />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
           
           {/* Setup route (requires auth but no semester) */}
           <Route
