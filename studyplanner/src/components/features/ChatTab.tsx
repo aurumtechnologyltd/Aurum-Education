@@ -8,9 +8,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Send, Bot, User, Sparkles, FileQuestion, Trash2, Download } from 'lucide-react'
+import { Send, Bot, User, Sparkles, FileQuestion, Trash2, Download, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { ChatSidebar } from './ChatSidebar'
 
 interface Message {
   id: string
@@ -22,6 +23,7 @@ interface Message {
   provider?: string
   tokens_used?: { input: number; output: number }
   credits_deducted?: number
+  session_id?: string
 }
 
 interface ChatTabProps {
@@ -34,19 +36,24 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Load chat history when courseId changes
+  // Load chat history when session changes
   useEffect(() => {
     const loadChatHistory = async () => {
-      if (!courseId) return
+      if (!currentSessionId) {
+        setMessages([])
+        return
+      }
 
       setHistoryLoading(true)
       try {
         const { data, error } = await supabase
           .from('chat_messages')
           .select('*')
-          .eq('course_id', courseId)
+          .eq('session_id', currentSessionId)
           .order('created_at', { ascending: true })
 
         if (error) {
@@ -65,6 +72,7 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
           provider: row.provider || undefined,
           tokens_used: row.tokens_used as { input: number; output: number } | undefined,
           credits_deducted: row.credits_deducted || undefined,
+          session_id: (row as any).session_id
         }))
 
         setMessages(historyMessages)
@@ -76,13 +84,19 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
     }
 
     loadChatHistory()
-  }, [courseId])
+  }, [currentSessionId])
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
+
+  const handleNewChat = () => {
+    setCurrentSessionId(null)
+    setMessages([])
+    setInput('')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -93,8 +107,10 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
       role: 'user',
       content: input.trim(),
       timestamp: new Date(),
+      session_id: currentSessionId || undefined
     }
 
+    // Optimistically add user message
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setLoading(true)
@@ -102,12 +118,13 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
     try {
       // Get session for authentication
       const { data: { session } } = await supabase.auth.getSession()
-      
+
       // Call the RAG Edge Function
       const { data, error } = await supabase.functions.invoke('chat-rag', {
         body: {
           course_id: courseId,
           query: userMessage.content,
+          session_id: currentSessionId, // Pass current session ID if exists
         },
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
@@ -116,12 +133,18 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
 
       if (error) throw error
 
+      // If a new session was created by the backend, update our state
+      if (data.session_id && data.session_id !== currentSessionId) {
+        setCurrentSessionId(data.session_id)
+      }
+
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: data.response || 'I apologize, but I could not generate a response.',
         timestamp: new Date(),
         sources: data.sources || [],
+        session_id: data.session_id
       }
 
       setMessages(prev => [...prev, assistantMessage])
@@ -140,8 +163,10 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
   }
 
   const handleClearHistory = async () => {
+    if (!currentSessionId) return
+
     const confirmClear = window.confirm(
-      'Are you sure you want to clear all chat history for this course? This action cannot be undone.'
+      'Are you sure you want to clear this chat session? This action cannot be undone.'
     )
 
     if (!confirmClear) return
@@ -150,12 +175,10 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
       const { error } = await supabase
         .from('chat_messages')
         .delete()
-        .eq('course_id', courseId)
+        .eq('session_id', currentSessionId)
 
       if (error) {
-        console.error('Failed to clear chat history:', error)
-        alert('Failed to clear chat history. Please try again.')
-        return
+        throw error
       }
 
       // Clear local state
@@ -203,17 +226,6 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
             content += `Sources: ${message.sources.map(s => `Chunk ${s.chunk_id}`).join(', ')}\n`
           }
 
-          // Add metadata for assistant messages
-          if (message.role === 'assistant' && message.model_used) {
-            content += `Model: ${message.model_used} (${message.provider})\n`
-            if (message.tokens_used) {
-              content += `Tokens: ${message.tokens_used.input} input, ${message.tokens_used.output} output\n`
-            }
-            if (message.credits_deducted && message.credits_deducted > 0) {
-              content += `Credits: ${message.credits_deducted}\n`
-            }
-          }
-
           content += '\n'
         })
       } else {
@@ -240,18 +252,6 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
             content += '\n'
           }
 
-          // Add metadata for assistant messages
-          if (message.role === 'assistant' && message.model_used) {
-            content += `**Model:** ${message.model_used} (${message.provider})\n`
-            if (message.tokens_used) {
-              content += `**Tokens:** ${message.tokens_used.input} input, ${message.tokens_used.output} output\n`
-            }
-            if (message.credits_deducted && message.credits_deducted > 0) {
-              content += `**Credits:** ${message.credits_deducted}\n`
-            }
-            content += '\n'
-          }
-
           content += `---\n\n`
         })
       }
@@ -275,7 +275,7 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
 
   if (!hasDocuments) {
     return (
-      <Card className="border-dashed">
+      <Card className="border-dashed h-[600px] flex items-center justify-center">
         <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
             <FileQuestion className="w-8 h-8 text-primary" />
@@ -290,180 +290,235 @@ export function ChatTab({ courseId, hasDocuments }: ChatTabProps) {
   }
 
   return (
-    <Card className="flex flex-col h-[600px] overflow-hidden">
-      {/* Chat Header */}
-      {messages.length > 0 && (
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-sm font-medium text-muted-foreground">Chat History</h3>
-          <div className="flex gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={loading || historyLoading}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => handleExportTranscript('txt')}>
-                  Export as .txt
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExportTranscript('md')}>
-                  Export as .md
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearHistory}
-              className="text-destructive hover:text-destructive"
-              disabled={loading || historyLoading}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Clear History
-            </Button>
-          </div>
-        </div>
-      )}
+    <div className="flex h-[600px] gap-4">
+      {/* Sidebar */}
+      <div
+        className={cn(
+          "transition-all duration-300 ease-in-out overflow-hidden",
+          isSidebarOpen ? "w-64 flex-shrink-0" : "w-0"
+        )}
+      >
+        <ChatSidebar
+          courseId={courseId}
+          currentSessionId={currentSessionId}
+          onSelectSession={setCurrentSessionId}
+          onNewChat={handleNewChat}
+        />
+      </div>
 
-      {/* Chat Messages */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <div 
-          ref={scrollRef}
-          className="h-full overflow-y-auto p-4"
-        >
-        {historyLoading ? (
-          <div className="flex flex-col items-center justify-center h-full text-center py-12">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 text-primary animate-pulse" />
-            </div>
-            <h3 className="text-lg font-medium mb-2">Loading Chat History</h3>
-            <p className="text-muted-foreground max-w-sm">
-              Retrieving your previous conversations...
-            </p>
+      {/* Main Chat Area */}
+      <Card className="flex-1 flex flex-col overflow-hidden">
+        {/* Chat Header */}
+        <div className="flex items-center justify-between p-4 border-b bg-card">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="h-8 w-8"
+              title={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+            >
+              {isSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+            </Button>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              {currentSessionId ? 'Current Chat' : 'Select or Start a New Chat'}
+            </h3>
           </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center py-12">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 text-primary" />
+
+          {messages.length > 0 && (
+            <div className="flex gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={loading || historyLoading}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => handleExportTranscript('txt')}>
+                    Export as .txt
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExportTranscript('md')}>
+                    Export as .md
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearHistory}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                disabled={loading || historyLoading}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Clear Chat
+              </Button>
             </div>
-            <h3 className="text-lg font-medium mb-2">Ask About Your Syllabus</h3>
-            <p className="text-muted-foreground max-w-sm mb-6">
-              I can help you understand your course materials. Try asking:
-            </p>
-            <div className="space-y-2 text-sm">
-              <button 
-                className="block w-full text-left px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-                onClick={() => setInput("When is the midterm exam?")}
-              >
-                "When is the midterm exam?"
-              </button>
-              <button 
-                className="block w-full text-left px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-                onClick={() => setInput("What's the grading policy?")}
-              >
-                "What's the grading policy?"
-              </button>
-              <button 
-                className="block w-full text-left px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-                onClick={() => setInput("Summarize the course objectives")}
-              >
-                "Summarize the course objectives"
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  'flex gap-3 max-w-[85%]',
-                  message.role === 'user' ? 'ml-auto flex-row-reverse' : ''
-                )}
-              >
-                <div
-                  className={cn(
-                    'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
-                    message.role === 'user' 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'bg-muted'
-                  )}
-                >
-                  {message.role === 'user' ? (
-                    <User className="w-4 h-4" />
-                  ) : (
-                    <Bot className="w-4 h-4" />
-                  )}
+          )}
+        </div>
+
+        {/* Chat Messages */}
+        <div className="flex-1 min-h-0 overflow-hidden bg-background">
+          <div
+            ref={scrollRef}
+            className="h-full overflow-y-auto p-4"
+          >
+            {historyLoading ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                  <Sparkles className="w-8 h-8 text-primary animate-pulse" />
                 </div>
-                <div
-                  className={cn(
-                    'px-4 py-3 rounded-2xl text-sm',
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                      : 'bg-muted text-foreground rounded-tl-sm'
-                  )}
-                >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                  {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-border/50">
-                      <p className="text-xs text-muted-foreground mb-1">Sources:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {message.sources.map((source, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground"
-                            title={`Similarity: ${(source.similarity * 100).toFixed(1)}%`}
-                          >
-                            Chunk {source.chunk_id}
-                            {source.metadata?.chunk_index !== undefined && ` (Page ${Math.floor((source.metadata.chunk_index as number) / 5) + 1})`}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <h3 className="text-lg font-medium mb-2">Loading Chat...</h3>
+              </div>
+            ) : !currentSessionId ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-12 opacity-50">
+                <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                  <Bot className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground">Select a chat from the sidebar or start a new one.</p>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                  <Sparkles className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-medium mb-2">Start a New Conversation</h3>
+                <p className="text-muted-foreground max-w-sm mb-6">
+                  Ask questions about your syllabus or course materials.
+                </p>
+                <div className="space-y-2 text-sm w-full max-w-sm mx-auto">
+                  <button
+                    className="block w-full text-left px-4 py-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors border border-transparent hover:border-border"
+                    onClick={() => setInput("What are the key topics in this course?")}
+                  >
+                    "What are the key topics in this course?"
+                  </button>
+                  <button
+                    className="block w-full text-left px-4 py-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors border border-transparent hover:border-border"
+                    onClick={() => setInput("When are the assignments due?")}
+                  >
+                    "When are the assignments due?"
+                  </button>
                 </div>
               </div>
-            ))}
-            {loading && (
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                  <Bot className="w-4 h-4" />
-                </div>
-                <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 rounded-full bg-foreground/30 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 rounded-full bg-foreground/30 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 rounded-full bg-foreground/30 animate-bounce" style={{ animationDelay: '300ms' }} />
+            ) : (
+              <div className="space-y-6 max-w-3xl mx-auto">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={cn(
+                      'flex gap-4 group',
+                      message.role === 'user' ? 'flex-row-reverse' : ''
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm border',
+                        message.role === 'user'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background border-border'
+                      )}
+                    >
+                      {message.role === 'user' ? (
+                        <User className="w-4 h-4" />
+                      ) : (
+                        <Bot className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div
+                      className={cn(
+                        'flex-1 max-w-[85%]',
+                        message.role === 'user' ? 'text-right' : ''
+                      )}
+                    >
+                      <div className={cn(
+                        "inline-block rounded-2xl px-4 py-3 shadow-sm",
+                        message.role === 'user'
+                          ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                          : 'bg-card border text-card-foreground rounded-tl-sm'
+                      )}>
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+                      </div>
+
+                      {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
+                        <div className="mt-2 pl-1">
+                          <p className="text-xs text-muted-foreground mb-1.5 font-medium flex items-center gap-1">
+                            <FileQuestion className="w-3 h-3" /> Sources
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {message.sources.map((source, idx) => (
+                              <div
+                                key={idx}
+                                className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-muted/50 text-muted-foreground border hover:bg-muted transition-colors cursor-help"
+                                title={`Original Chunk ID: ${source.chunk_id} (Similarity: ${(source.similarity * 100).toFixed(0)}%)`}
+                              >
+                                {source.metadata?.page_number ? `Page ${source.metadata.page_number}` : `Source ${idx + 1}`}
+                                <span className="ml-1.5 opacity-50">|</span>
+                                <span className="ml-1.5 font-mono text-[10px] opacity-70">
+                                  {(source.similarity * 100).toFixed(0)}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ))}
+                {loading && (
+                  <div className="flex gap-4">
+                    <div className="w-8 h-8 rounded-full bg-background border flex items-center justify-center shadow-sm">
+                      <Bot className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div className="bg-card border rounded-2xl rounded-tl-sm px-4 py-4 shadow-sm">
+                      <div className="flex gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-1.5 h-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
         </div>
-      </div>
 
-      {/* Input Area */}
-      <div className="border-t p-4 flex-shrink-0">
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your syllabus..."
-            disabled={loading}
-            className="flex-1"
-          />
-          <Button type="submit" size="icon" disabled={loading || !input.trim()}>
-            <Send className="w-4 h-4" />
-          </Button>
-        </form>
-      </div>
-    </Card>
+        {/* Input Area */}
+        <div className="p-4 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="max-w-3xl mx-auto">
+            <form onSubmit={handleSubmit} className="flex gap-3 relative">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={currentSessionId ? "Ask about your syllabus..." : "Start a new chat first..."}
+                disabled={loading} // Removing !currentSessionId check to allow "New Chat" on first message if none selected? 
+                // Wait, if no session ID, we create one automatically on first message.
+                // So enabling input is fine.
+                className="flex-1 pr-12 h-11 shadow-sm"
+              />
+              <div className="absolute right-1.5 top-1.5">
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={loading || !input.trim()}
+                  className="h-8 w-8"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+            </form>
+            <p className="text-[10px] text-center text-muted-foreground mt-2">
+              AI can make mistakes. Please verify important information from your original documents.
+            </p>
+          </div>
+        </div>
+      </Card>
+    </div>
   )
 }
 
