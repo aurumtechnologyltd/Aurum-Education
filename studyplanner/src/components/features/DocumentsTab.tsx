@@ -226,17 +226,6 @@ export function DocumentsTab({ courseId, documents, onUploadComplete, onProcessi
       const chunksCount = result.chunks_created || 0
       const isPartial = result.partial || false
 
-      // Log extraction details for debugging
-      console.log('Document extraction result:', {
-        documentId,
-        fileName: documents.find(d => d.id === documentId)?.file_name,
-        assignmentsExtracted: assignmentsCount,
-        chunksCreated: chunksCount,
-        partial: isPartial,
-        userId: user?.id,
-        timestamp: new Date().toISOString()
-      })
-
       // Fetch extracted assignments to show in review modal
       if (assignmentsCount > 0) {
         const { data: assignmentsData } = await supabase
