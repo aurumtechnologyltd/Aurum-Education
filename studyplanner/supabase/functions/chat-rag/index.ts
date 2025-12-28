@@ -148,7 +148,13 @@ Deno.serve(async (req) => {
     }
 
     // Generate embedding for the query using OpenAI (same for all tiers)
-    const queryEmbedding = await generateEmbedding(query);
+    let queryEmbedding;
+    try {
+      queryEmbedding = await generateEmbedding(query);
+    } catch (embeddingError) {
+      console.error("Embedding generation failed:", embeddingError);
+      throw new Error(`Failed to generate embedding: ${embeddingError.message}`);
+    }
 
     // Format embedding as a Postgres vector literal string: '[0.1,0.2,...]'
     const embeddingString = `[${queryEmbedding.join(",")}]`;
@@ -201,7 +207,13 @@ ${context}
 
 Question: ${query}`;
 
-    const response = await generateCompletion(modelConfig, systemPrompt, userPrompt);
+    let response;
+    try {
+      response = await generateCompletion(modelConfig, systemPrompt, userPrompt);
+    } catch (completionError) {
+      console.error("Completion generation failed:", completionError);
+      throw new Error(`Failed to generate response: ${completionError.message}`);
+    }
 
     // Log AI usage for cost tracking
     await logAIUsage(supabase, {
