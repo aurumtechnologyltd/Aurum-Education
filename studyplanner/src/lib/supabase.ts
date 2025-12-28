@@ -39,8 +39,6 @@ if (capturedHash) {
   const hashParams = new URLSearchParams(capturedHash.substring(1))
   const accessToken = hashParams.get('access_token')
   const refreshToken = hashParams.get('refresh_token')
-  const expiresIn = hashParams.get('expires_in')
-  const tokenType = hashParams.get('token_type')
   
   if (accessToken && refreshToken) {
     // Set the session manually since we cleaned the URL
