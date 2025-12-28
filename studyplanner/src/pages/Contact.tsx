@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -74,13 +72,16 @@ export default function Contact() {
   const handleBlur = (name: keyof FormData) => {
     const value = formData[name]
     const error = validateField(name, value)
-    setErrors((prev) => ({ ...prev, [name]: error }))
+    // Only set error if it's a field that can have errors
+    if (name === 'firstName' || name === 'lastName' || name === 'email' || name === 'message') {
+      setErrors((prev) => ({ ...prev, [name]: error }))
+    }
   }
 
   const handleChange = (name: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }))
-    // Clear error when user starts typing
-    if (errors[name]) {
+    // Clear error when user starts typing (only for fields that can have errors)
+    if ((name === 'firstName' || name === 'lastName' || name === 'email' || name === 'message') && errors[name]) {
       setErrors((prev) => {
         const newErrors = { ...prev }
         delete newErrors[name]
