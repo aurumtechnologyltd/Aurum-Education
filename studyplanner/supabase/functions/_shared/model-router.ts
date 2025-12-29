@@ -11,19 +11,20 @@
 import { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 // Environment variables
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
+// Environment variables
+const getOpenAiKey = () => Deno.env.get("OPENAI_API_KEY")!;
+const getGeminiKey = () => Deno.env.get("GEMINI_API_KEY")!;
+const getAnthropicKey = () => Deno.env.get("ANTHROPIC_API_KEY")!;
 
 // Model identifiers
 export const MODELS = {
   // OpenAI
   GPT_5_NANO: "gpt-5-nano",
   EMBEDDING: "text-embedding-3-small",
-  
+
   // Google Gemini
   GEMINI_3_FLASH: "gemini-3-flash-preview",
-  
+
   // Anthropic
   CLAUDE_HAIKU: "claude-3-5-haiku-latest",
 } as const;
@@ -67,10 +68,10 @@ export function calculateCost(
 ): number {
   const costs = MODEL_COSTS[modelName as keyof typeof MODEL_COSTS];
   if (!costs) return 0;
-  
+
   const inputCost = (inputTokens / 1_000_000) * costs.input;
   const outputCost = (outputTokens / 1_000_000) * costs.output;
-  
+
   return inputCost + outputCost;
 }
 
@@ -137,7 +138,7 @@ export function getChatModel(tier: PlanTier): ModelConfig {
       temperature: 0.7,
     };
   }
-  
+
   // Pro, Pro+, Enterprise get Gemini 3 Flash
   return {
     provider: "gemini",
@@ -159,7 +160,7 @@ export function getStudyPlanModel(tier: PlanTier): ModelConfig {
       temperature: 0.7,
     };
   }
-  
+
   // Pro, Pro+, Enterprise get Gemini 3 Flash
   return {
     provider: "gemini",
@@ -252,7 +253,7 @@ export async function generateGeminiCompletion(
     {
       method: "POST",
       headers: {
-        "x-goog-api-key": GEMINI_API_KEY,
+        "x-goog-api-key": getGeminiKey(),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -268,12 +269,12 @@ export async function generateGeminiCompletion(
   }
 
   const data = await response.json();
-  
+
   // Extract text from Gemini response structure
   if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
     throw new Error("Invalid Gemini response structure");
   }
-  
+
   return data.candidates[0].content.parts[0].text;
 }
 
@@ -289,7 +290,7 @@ export async function generateAnthropicCompletion(
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
-      "x-api-key": ANTHROPIC_API_KEY,
+      "x-api-key": getAnthropicKey(),
       "anthropic-version": "2023-06-01",
       "Content-Type": "application/json",
     },
@@ -307,12 +308,12 @@ export async function generateAnthropicCompletion(
   }
 
   const data = await response.json();
-  
+
   // Extract text from Claude response structure
   if (!data.content?.[0]?.text) {
     throw new Error("Invalid Anthropic response structure");
   }
-  
+
   return data.content[0].text;
 }
 
@@ -332,20 +333,20 @@ export async function generateCompletion(
         temperature: config.temperature,
         jsonMode: options.jsonMode,
       });
-      
+
     case "gemini":
       return generateGeminiCompletion(config.model, systemPrompt, userPrompt, {
         maxTokens: config.maxTokens,
         temperature: config.temperature,
         jsonMode: options.jsonMode,
       });
-      
+
     case "anthropic":
       return generateAnthropicCompletion(config.model, systemPrompt, userPrompt, {
         maxTokens: config.maxTokens,
         temperature: config.temperature,
       });
-      
+
     default:
       throw new Error(`Unknown provider: ${config.provider}`);
   }
