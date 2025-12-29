@@ -19,11 +19,11 @@ const getAnthropicKey = () => Deno.env.get("ANTHROPIC_API_KEY")!;
 // Model identifiers
 export const MODELS = {
   // OpenAI
-  GPT_5_NANO: "gpt-4o-mini",
+  GPT_5_NANO: "gpt-5-nano",
   EMBEDDING: "text-embedding-3-small",
 
   // Google Gemini
-  GEMINI_3_FLASH: "gemini-1.5-flash",
+  GEMINI_3_FLASH: "gemini-3-flash-preview",
 
   // Anthropic
   CLAUDE_HAIKU: "claude-3-5-haiku-latest",
@@ -40,9 +40,9 @@ export interface ModelConfig {
 
 // Cost per 1M tokens for each model (in USD)
 const MODEL_COSTS = {
-  "gpt-4o-mini": { input: 0.15, output: 0.60 },
-  "gemini-1.5-flash": { input: 0.075, output: 0.30 },
-  "claude-3-5-haiku-latest": { input: 1.00, output: 5.00 }, // Approx pricing, verify later
+  "gpt-5-nano": { input: 0.10, output: 0.20 },
+  "gemini-3-flash-preview": { input: 0.075, output: 0.30 },
+  "claude-3-5-haiku-latest": { input: 0.25, output: 1.25 },
   "text-embedding-3-small": { input: 0.02, output: 0 },
 } as const;
 
