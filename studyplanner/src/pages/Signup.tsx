@@ -89,16 +89,16 @@ export default function Signup() {
       setEmailError('Please enter a valid email address')
       return false
     }
-    
-    const isValidDomain = ALLOWED_EMAIL_DOMAINS.some(domain => 
+
+    const isValidDomain = ALLOWED_EMAIL_DOMAINS.some(domain =>
       emailDomain === domain || emailDomain.endsWith(`.${domain}`)
     )
-    
+
     if (!isValidDomain) {
       setEmailError('Please use your university email address. Personal email accounts are not allowed.')
       return false
     }
-    
+
     setEmailError(null)
     return true
   }
@@ -172,24 +172,25 @@ export default function Signup() {
       .update(profileUpdates)
       .eq('id', user.id)
 
-    // Initialize subscription record - signup bonus is handled by database trigger
-    try {
-      await supabase
-        .from('subscriptions')
-        .upsert({
-          user_id: user.id,
-          plan_tier: 'free',
-          status: 'active',
-          credit_balance: 0, // Will be set to 50 by trigger
-          credit_cap: 50,
-          stripe_customer_id: null, // Free tier users don't have Stripe customer yet
-          stripe_subscription_id: null,
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 1 month from now
-        }, { onConflict: 'user_id' })
-    } catch (err) {
-      console.error('Error initializing subscription:', err)
+    // Initialize subscription record - this is a fallback; database trigger should handle it
+    // The trigger on profiles table will create subscription automatically
+    const { error: subError } = await supabase
+      .from('subscriptions')
+      .upsert({
+        user_id: user.id,
+        plan_tier: 'free',
+        status: 'active',
+        credit_balance: 50, // Signup bonus
+        credit_cap: 50,
+        current_period_start: new Date().toISOString(),
+        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      }, { onConflict: 'user_id' })
+
+    if (subError) {
+      // Log but don't block signup - trigger should have created it
+      console.warn('Subscription upsert fallback failed (trigger should handle):', subError.message)
     }
+
 
     // Process referral bonus if referral code was used
     if (referralCode && referrerId) {
@@ -228,7 +229,7 @@ export default function Signup() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-slate-50 to-amber-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-100/40 via-transparent to-transparent dark:from-emerald-900/20" />
-      
+
       <Card className="w-full max-w-md relative z-10 shadow-xl border-slate-200/50 dark:border-slate-800/50">
         <CardHeader className="text-center space-y-4">
           <img src="/logo.png" alt="Aurum Education" className="mx-auto w-20 h-20 object-contain" />
